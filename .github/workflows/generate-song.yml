@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       lyrics:
-        description: "Optional lyrics; leave empty for an instrumental track"
+        description: "Optional lyrics; section labels like [Verse], [Chorus], [Outro] can help structure the song"
         required: false
         type: string
       style:
