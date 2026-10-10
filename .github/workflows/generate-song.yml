@@ -1,60 +1,75 @@
-name: Generate song (prompt dispatch)
+name: Generate song with ACE-Step
 
 on:
   workflow_dispatch:
     inputs:
       song_prompt:
-        description: "Describe the song you want the model to create"
+        description: "Describe the song (Hebrew or English)"
         required: true
         type: string
       lyrics:
-        description: "Optional lyrics to sing"
+        description: "Optional lyrics; leave empty for an instrumental track"
         required: false
         type: string
       style:
-        description: "Optional genre, mood, and vocal style"
+        description: "Optional genre, mood, instruments, and vocal style"
         required: false
         type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: generate-song-${{ github.run_id }}
+  cancel-in-progress: false
+
 jobs:
-  prepare-prompt:
+  generate:
+    # Standard GitHub-hosted runner: CPU only; generation may be very slow.
     runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      SONG_PROMPT: ${{ inputs.song_prompt }}
+      LYRICS: ${{ inputs.lyrics }}
+      STYLE: ${{ inputs.style }}
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      ACESTEP_LLM_BACKEND: pt
     steps:
-      - name: Prepare song request
-        env:
-          SONG_PROMPT: ${{ inputs.song_prompt }}
-          LYRICS: ${{ inputs.lyrics }}
-          STYLE: ${{ inputs.style }}
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Clone and install ACE-Step 1.5
         run: |
-          python - <<'PY'
-          import os
-          from pathlib import Path
+          git clone --depth 1 https://github.com/ACE-Step/ACE-Step-1.5.git .ace-step
+          cd .ace-step
+          uv sync
 
-          parts = [
-              "Song generation request",
-              "",
-              "Prompt:",
-              os.environ.get("SONG_PROMPT", "").strip(),
-              "",
-              "Style:",
-              os.environ.get("STYLE", "").strip() or "(not specified)",
-              "",
-              "Lyrics:",
-              os.environ.get("LYRICS", "").strip() or "(not provided; let the model generate lyrics if supported)",
-              "",
-          ]
-          prompt_file = Path("song-request.txt")
-          prompt_file.write_text("\n".join(parts), encoding="utf-8")
-          print("Prepared song-request.txt from workflow_dispatch inputs.")
-          PY
+      - name: Download model weights
+        working-directory: .ace-step
+        run: |
+          uv run acestep-download --model acestep-v15-turbo
+          uv run acestep-download --model acestep-5Hz-lm-0.6B
 
-      - name: Upload song request
+      - name: Generate real audio
+        env:
+          ACESTEP_ROOT: ${{ github.workspace }}/.ace-step
+        run: |
+          PYTHONPATH="${{ github.workspace }}/.ace-step" python generate_song.py
+
+      - name: Upload generated audio
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: song-request
-          path: song-request.txt
-          if-no-files-found: error
+          name: generated-song
+          path: output/
+          if-no-files-found: warn
           retention-days: 7
