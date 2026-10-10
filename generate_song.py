@@ -58,8 +58,21 @@ result = generate_music(dit, lm, params, config, save_dir=str(out_dir))
 if not result.success or not result.audios:
     raise RuntimeError(f"Music generation failed: {result.error or result.status_message}")
 
+valid_files = []
 for audio in result.audios:
-    path = Path(audio["path"])
-    if not path.exists() or path.stat().st_size < 1024:
-        raise RuntimeError(f"Model reported output but audio file is missing/empty: {path}")
+    raw_path = audio.get("path") if isinstance(audio, dict) else None
+    if not raw_path:
+        continue
+    path = Path(raw_path)
+    if path.is_file() and path.suffix.lower() == ".mp3" and path.stat().st_size >= 1024:
+        valid_files.append(path.resolve())
+
+if not valid_files:
+    files = [str(p) for p in out_dir.rglob("*") if p.is_file()]
+    raise RuntimeError(
+        "ACE-Step reported success but no valid MP3 was saved. "
+        f"Files found in output/: {files}"
+    )
+
+for path in valid_files:
     print(f"Generated audio: {path} ({path.stat().st_size:,} bytes)", flush=True)
