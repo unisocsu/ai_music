@@ -55,6 +55,9 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/HeartMuLa/heartlib.git heartlib
           cd heartlib
+          # Upstream metadata currently advertises Python 3.9, but pinned dependencies
+          # require Python 3.10+. Narrow the supported range for this CI checkout.
+          sed -i 's/requires-python = ">=3.9"/requires-python = ">=3.10"/' pyproject.toml
           uv sync --no-dev
 
       - name: Download HeartMuLa model checkpoints
