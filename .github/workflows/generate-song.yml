@@ -1,0 +1,60 @@
+name: Generate song (prompt dispatch)
+
+on:
+  workflow_dispatch:
+    inputs:
+      song_prompt:
+        description: "Describe the song you want the model to create"
+        required: true
+        type: string
+      lyrics:
+        description: "Optional lyrics to sing"
+        required: false
+        type: string
+      style:
+        description: "Optional genre, mood, and vocal style"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-prompt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare song request
+        env:
+          SONG_PROMPT: ${{ inputs.song_prompt }}
+          LYRICS: ${{ inputs.lyrics }}
+          STYLE: ${{ inputs.style }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          parts = [
+              "Song generation request",
+              "",
+              "Prompt:",
+              os.environ.get("SONG_PROMPT", "").strip(),
+              "",
+              "Style:",
+              os.environ.get("STYLE", "").strip() or "(not specified)",
+              "",
+              "Lyrics:",
+              os.environ.get("LYRICS", "").strip() or "(not provided; let the model generate lyrics if supported)",
+              "",
+          ]
+          prompt_file = Path("song-request.txt")
+          prompt_file.write_text("\n".join(parts), encoding="utf-8")
+          print("Prepared song-request.txt from workflow_dispatch inputs.")
+          PY
+
+      - name: Upload song request
+        uses: actions/upload-artifact@v4
+        with:
+          name: song-request
+          path: song-request.txt
+          if-no-files-found: error
+          retention-days: 7
