@@ -59,8 +59,10 @@ jobs:
           # require Python 3.10+. Narrow the supported range for this CI checkout.
           sed -i 's/requires-python = ">=3.9"/requires-python = ">=3.10"/' pyproject.toml
           uv sync --no-dev
-          # datasets currently imports PyExtensionType, removed in pyarrow 21+.
-          uv pip install --python .venv/bin/python "pyarrow==20.0.0"
+          # Keep Arrow and Datasets on a mutually compatible pair; force reinstall
+          # because the resolver may have selected a newer Arrow release.
+          uv pip install --python .venv/bin/python --reinstall "pyarrow==19.0.1" "datasets==2.19.2"
+          uv run python -c 'import pyarrow, datasets; print("pyarrow=" + pyarrow.__version__ + ", datasets=" + datasets.__version__)'
 
       - name: Download HeartMuLa model checkpoints
         working-directory: heartlib
