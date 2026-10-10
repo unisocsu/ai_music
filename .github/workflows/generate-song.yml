@@ -43,6 +43,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install system audio tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
+
       - name: Install uv
         run: pip install uv
 
@@ -71,6 +76,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: generated-song
-          path: output/
-          if-no-files-found: warn
+          path: output/*.mp3
+          if-no-files-found: error
           retention-days: 7
