@@ -21,7 +21,7 @@ Path("input/tags.txt").write_text(tags, encoding="utf-8")
 
 output = Path("../output/heartmula-song.mp3")
 command = [
-    "uv", "run", "--no-sync", "python", "examples/run_music_generation.py",
+    str(Path(".venv/bin/python")), "examples/run_music_generation.py",
     "--model_path=./ckpt",
     "--version=3B",
     "--lyrics=./input/lyrics.txt",
