@@ -59,9 +59,9 @@ jobs:
           # require Python 3.10+. Narrow the supported range for this CI checkout.
           sed -i 's/requires-python = ">=3.9"/requires-python = ">=3.10"/' pyproject.toml
           uv sync --no-dev
-          # HeartMuLa pulls an old Datasets API through torchtune. Pin the legacy-compatible
-          # stack explicitly; newer Arrow releases removed PyExtensionType.
-          uv pip install --python .venv/bin/python --reinstall "numpy==1.26.4" "pyarrow==14.0.2" "datasets==2.14.4"
+          # Current Arrow no longer exposes PyExtensionType, which breaks old Datasets 2.x.
+          # Keep Arrow current and use a Datasets release compatible with it.
+          uv pip install --python .venv/bin/python --reinstall "datasets==3.6.0"
           uv run python -c 'import numpy, pyarrow, datasets; print("numpy=" + numpy.__version__ + ", pyarrow=" + pyarrow.__version__ + ", datasets=" + datasets.__version__)'
 
       - name: Download HeartMuLa model checkpoints
