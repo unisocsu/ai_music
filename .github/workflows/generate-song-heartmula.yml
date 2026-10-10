@@ -61,15 +61,15 @@ jobs:
           uv sync --no-dev
           # Heartlib currently resolves an old Datasets release, which expects PyExtensionType.
           # Pin Arrow to the last compatible major version and upgrade Datasets together.
-          uv pip install --python .venv/bin/python --reinstall "pyarrow==20.0.0" "datasets==3.6.0"
+          uv pip install --python .venv/bin/python --reinstall "pyarrow==19.0.1" "datasets==3.6.0"
           uv run --no-sync python -c 'import numpy, pyarrow, datasets; print("numpy=" + numpy.__version__ + ", pyarrow=" + pyarrow.__version__ + ", datasets=" + datasets.__version__)'
 
       - name: Download HeartMuLa model checkpoints
         working-directory: heartlib
         run: |
           uv run --no-sync hf download HeartMuLa/HeartMuLaGen gen_config.json tokenizer.json --local-dir ./ckpt
-          uv run hf download HeartMuLa/HeartMuLa-oss-3B-happy-new-year --local-dir ./ckpt/HeartMuLa-oss-3B
-          uv run hf download HeartMuLa/HeartCodec-oss-20260123 --local-dir ./ckpt/HeartCodec-oss
+          uv run --no-sync hf download HeartMuLa/HeartMuLa-oss-3B-happy-new-year --local-dir ./ckpt/HeartMuLa-oss-3B
+          uv run --no-sync hf download HeartMuLa/HeartCodec-oss-20260123 --local-dir ./ckpt/HeartCodec-oss
 
       - name: Generate audio (CPU, experimental)
         run: |
