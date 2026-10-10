@@ -1,4 +1,5 @@
 import os
+import subprocess
 from pathlib import Path
 
 from acestep.handler import AceStepHandler
@@ -15,12 +16,28 @@ lyrics = os.environ.get("LYRICS", "").strip()
 if not prompt and not lyrics:
     raise SystemExit("Provide a song prompt or lyrics.")
 
-caption = prompt
+# Give the model concrete arrangement and mix instructions, rather than just a genre label.
+caption_parts = [prompt] if prompt else []
 if style:
-    caption = f"{caption}. Style: {style}" if caption else style
-caption = caption[:512]
+    caption_parts.append(f"Requested style: {style}")
+style_lower = style.lower()
+if any(term in style_lower for term in ("רוק", "rock", "metal", "מטאל")):
+    caption_parts.append(
+        "Create an energetic, full-band hard rock song with prominent distorted electric "
+        "guitar riffs and power chords, audible electric bass, punchy live rock drums, "
+        "strong melodic sung vocals, a memorable chorus, and a powerful guitar-led ending. "
+        "Use a full, loud, polished studio mix. No ukulele, no synth-pop, no spoken-word "
+        "delivery, and no quiet acoustic demo."
+    )
+else:
+    caption_parts.append(
+        "Create a complete, polished song arrangement in the requested style, with a clear "
+        "rhythm section, present lead instruments, balanced full-band sound, and a strong "
+        "mastered mix. Avoid a sparse, quiet demo."
+    )
+caption = ". ".join(caption_parts)[:1200]
 
-print("Initializing ACE-Step on CPU. First run downloads model weights and may take a long time.", flush=True)
+print("Initializing ACE-Step on CPU. Longer generation and prompt reasoning are enabled.", flush=True)
 dit = AceStepHandler()
 status = dit.initialize_service(
     project_root=str(root),
@@ -49,24 +66,20 @@ params = GenerationParams(
     lyrics=lyrics,
     instrumental=not bool(lyrics),
     vocal_language="unknown",
-    duration=15,
+    duration=60,
     inference_steps=8,
-    thinking=False,
+    thinking=True,
 )
 config = GenerationConfig(batch_size=1, use_random_seed=True, audio_format="mp3")
 result = generate_music(dit, lm, params, config, save_dir=str(out_dir))
-if not result.success or not result.audios:
+if not result.success:
     raise RuntimeError(f"Music generation failed: {result.error or result.status_message}")
 
-valid_files = []
-for audio in result.audios:
-    raw_path = audio.get("path") if isinstance(audio, dict) else None
-    if not raw_path:
-        continue
-    path = Path(raw_path)
-    if path.is_file() and path.suffix.lower() == ".mp3" and path.stat().st_size >= 1024:
-        valid_files.append(path.resolve())
-
+# Trust actual files on disk, not only the model's result metadata.
+valid_files = [
+    p for p in out_dir.rglob("*.mp3")
+    if p.is_file() and p.stat().st_size >= 1024
+]
 if not valid_files:
     files = [str(p) for p in out_dir.rglob("*") if p.is_file()]
     raise RuntimeError(
@@ -74,5 +87,36 @@ if not valid_files:
         f"Files found in output/: {files}"
     )
 
+# Raise perceived loudness to a normal streaming level and keep true peaks controlled.
 for path in valid_files:
-    print(f"Generated audio: {path} ({path.stat().st_size:,} bytes)", flush=True)
+    normalized = path.with_name(path.stem + ".normalized.mp3")
+    subprocess.run(
+        [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+            "-i", str(path),
+            "-af", "loudnorm=I=-14:TP=-1.0:LRA=11",
+            "-codec:a", "libmp3lame", "-b:a", "192k",
+            str(normalized),
+        ],
+        check=True,
+    )
+    if not normalized.is_file() or normalized.stat().st_size < 1024:
+        raise RuntimeError(f"FFmpeg failed to create normalized audio for {path}")
+    normalized.replace(path)
+    duration_result = subprocess.run(
+        [
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", str(path),
+        ],
+        check=True, capture_output=True, text=True,
+    )
+    duration_seconds = float(duration_result.stdout.strip())
+    if duration_seconds < 45:
+        raise RuntimeError(
+            f"Generated audio is only {duration_seconds:.1f}s; expected at least 45s."
+        )
+    print(
+        f"Generated normalized audio: {path} "
+        f"({path.stat().st_size:,} bytes, {duration_seconds:.1f}s)",
+        flush=True,
+    )
