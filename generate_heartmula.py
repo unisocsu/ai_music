@@ -12,14 +12,14 @@ if not style and not prompt:
     raise SystemExit("Provide a style or song prompt.")
 
 Path("input").mkdir(exist_ok=True)
-Path("output").mkdir(exist_ok=True)
+Path("../output").mkdir(exist_ok=True)
 Path("input/lyrics.txt").write_text(lyrics, encoding="utf-8")
 
 # HeartMuLa conditions on tags; include the user's style and any extra description.
 tags = ", ".join(part for part in (style, prompt, "Hebrew vocals", "clear sung vocals") if part)
 Path("input/tags.txt").write_text(tags, encoding="utf-8")
 
-output = Path("output/heartmula-song.mp3")
+output = Path("../output/heartmula-song.mp3")
 command = [
     "uv", "run", "python", "examples/run_music_generation.py",
     "--model_path=./ckpt",
