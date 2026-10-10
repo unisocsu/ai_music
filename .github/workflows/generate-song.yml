@@ -55,8 +55,10 @@ jobs:
       - name: Download model weights
         working-directory: .ace-step
         run: |
-          uv run acestep-download --model acestep-v15-turbo
-          uv run acestep-download --model acestep-5Hz-lm-0.6B
+          # The downloader accepts "main" for the bundled official model.
+          # It includes the turbo DiT; add the smaller 0.6B LM for lower RAM use.
+          uv run acestep-download --model main
+          uv run acestep-download --model acestep-5Hz-lm-0.6B --skip-main
 
       - name: Generate real audio
         env:
