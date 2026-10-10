@@ -36,7 +36,7 @@ else:
         "mastered mix. Avoid a sparse, quiet demo."
     )
 # Tell the model explicitly to sing in Hebrew when the lyrics contain Hebrew letters.
-if any("\\u0590" <= ch <= "\\u05FF" for ch in lyrics):
+if any("\u0590" <= ch <= "\u05FF" for ch in lyrics):
     caption_parts.append(
         "The vocals must sing the supplied Hebrew lyrics in natural Hebrew pronunciation. "
         "Keep the original Hebrew words exactly; do not translate them or replace them "
@@ -72,7 +72,7 @@ params = GenerationParams(
     caption=caption,
     lyrics=lyrics,
     instrumental=not bool(lyrics),
-    vocal_language="he" if any("\\u0590" <= ch <= "\\u05FF" for ch in lyrics) else "unknown",
+    vocal_language="he" if any("\u0590" <= ch <= "\u05FF" for ch in lyrics) else "unknown",
     duration=60,
     inference_steps=8,
     thinking=True,
