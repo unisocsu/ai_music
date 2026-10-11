@@ -15,6 +15,17 @@ on:
         description: "Optional genre, mood, instruments, and vocal style"
         required: false
         type: string
+      duration_seconds:
+        description: "Target song duration in seconds"
+        required: true
+        type: choice
+        default: "60"
+        options:
+          - "30"
+          - "60"
+          - "90"
+          - "120"
+          - "180"
 
 permissions:
   contents: read
@@ -32,6 +43,7 @@ jobs:
       SONG_PROMPT: ${{ inputs.song_prompt }}
       LYRICS: ${{ inputs.lyrics }}
       STYLE: ${{ inputs.style }}
+      DURATION_SECONDS: ${{ inputs.duration_seconds }}
       HF_HUB_DISABLE_TELEMETRY: "1"
       ACESTEP_LLM_BACKEND: pt
     steps:
