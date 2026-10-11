@@ -13,6 +13,9 @@ out_dir.mkdir(exist_ok=True)
 prompt = os.environ.get("SONG_PROMPT", "").strip()
 style = os.environ.get("STYLE", "").strip()
 lyrics = os.environ.get("LYRICS", "").strip()
+duration_seconds = int(os.environ.get("DURATION_SECONDS", "60"))
+if not 20 <= duration_seconds <= 180:
+    raise SystemExit("Duration must be between 20 and 180 seconds.")
 if not prompt and not lyrics:
     raise SystemExit("Provide a song prompt or lyrics.")
 
@@ -73,7 +76,7 @@ params = GenerationParams(
     lyrics=lyrics,
     instrumental=not bool(lyrics),
     vocal_language="he" if any("\u0590" <= ch <= "\u05FF" for ch in lyrics) else "unknown",
-    duration=60,
+    duration=duration_seconds,
     inference_steps=8,
     thinking=True,
 )
@@ -118,9 +121,9 @@ for path in valid_files:
         check=True, capture_output=True, text=True,
     )
     duration_seconds = float(duration_result.stdout.strip())
-    if duration_seconds < 45:
+    if duration_seconds < int(os.environ.get("DURATION_SECONDS", "60")) * 0.75:
         raise RuntimeError(
-            f"Generated audio is only {duration_seconds:.1f}s; expected at least 45s."
+            f"Generated audio is only {duration_seconds:.1f}s; expected at least 75% of the requested duration."
         )
     print(
         f"Generated normalized audio: {path} "
