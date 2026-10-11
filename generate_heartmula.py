@@ -5,6 +5,9 @@ from pathlib import Path
 lyrics = os.environ.get("LYRICS", "").strip()
 style = os.environ.get("STYLE", "").strip()
 prompt = os.environ.get("SONG_PROMPT", "").strip()
+duration_seconds = int(os.environ.get("DURATION_SECONDS", "60"))
+if not 20 <= duration_seconds <= 180:
+    raise SystemExit("Duration must be between 20 and 180 seconds.")
 
 if not lyrics:
     raise SystemExit("HeartMuLa workflow requires lyrics.")
@@ -27,7 +30,7 @@ command = [
     "--lyrics=./input/lyrics.txt",
     "--tags=./input/tags.txt",
     f"--save_path={output}",
-    "--max_audio_length_ms=60000",
+    f"--max_audio_length_ms={duration_seconds * 1000}",
     "--mula_device=cpu",
     "--codec_device=cpu",
     "--mula_dtype=bfloat16",
@@ -57,6 +60,8 @@ duration_result = subprocess.run([
     "-of", "default=noprint_wrappers=1:nokey=1", str(output),
 ], check=True, capture_output=True, text=True)
 duration_seconds = float(duration_result.stdout.strip())
-if duration_seconds < 20:
-    raise RuntimeError(f"Generated audio is only {duration_seconds:.1f}s; expected at least 20s.")
+if duration_seconds < int(os.environ.get("DURATION_SECONDS", "60")) * 0.75:
+    raise RuntimeError(
+        f"Generated audio is only {duration_seconds:.1f}s; expected at least 75% of the requested duration."
+    )
 print(f"Generated HeartMuLa audio: {output} ({output.stat().st_size:,} bytes, {duration_seconds:.1f}s)", flush=True)
