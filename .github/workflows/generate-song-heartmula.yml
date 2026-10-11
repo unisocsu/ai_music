@@ -15,6 +15,17 @@ on:
         description: "Genre, mood, instruments, and vocal style"
         required: true
         type: string
+      duration_seconds:
+        description: "Target song duration in seconds"
+        required: true
+        type: choice
+        default: "60"
+        options:
+          - "30"
+          - "60"
+          - "90"
+          - "120"
+          - "180"
 
 permissions:
   contents: read
@@ -32,6 +43,7 @@ jobs:
       SONG_PROMPT: ${{ inputs.song_prompt }}
       LYRICS: ${{ inputs.lyrics }}
       STYLE: ${{ inputs.style }}
+      DURATION_SECONDS: ${{ inputs.duration_seconds }}
       HF_HUB_DISABLE_TELEMETRY: "1"
       PYTHONUNBUFFERED: "1"
     steps:
@@ -61,8 +73,8 @@ jobs:
           uv sync --no-dev
           # Heartlib currently resolves an old Datasets release, which expects PyExtensionType.
           # Pin Arrow to the last compatible major version and upgrade Datasets together.
-          uv pip install --python .venv/bin/python --reinstall "pyarrow==19.0.1" "datasets==3.6.0" "huggingface-hub==0.36.2"
-          uv run --no-sync python -c 'import numpy, pyarrow, datasets, huggingface_hub, transformers; print("numpy=" + numpy.__version__ + ", pyarrow=" + pyarrow.__version__ + ", datasets=" + datasets.__version__ + ", huggingface_hub=" + huggingface_hub.__version__ + ", transformers=" + transformers.__version__)'
+          uv pip install --python .venv/bin/python --reinstall "pyarrow==19.0.1" "datasets==3.6.0" "huggingface-hub==0.36.2" "torchcodec"
+          uv run --no-sync python -c 'import numpy, pyarrow, datasets, huggingface_hub, transformers, torchcodec; print("numpy=" + numpy.__version__ + ", pyarrow=" + pyarrow.__version__ + ", datasets=" + datasets.__version__ + ", huggingface_hub=" + huggingface_hub.__version__ + ", transformers=" + transformers.__version__ + ", torchcodec=" + torchcodec.__version__)'
 
       - name: Download HeartMuLa model checkpoints
         working-directory: heartlib
