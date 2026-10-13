@@ -63,19 +63,51 @@ jobs:
       - name: Install uv
         run: pip install uv
 
-      - name: Clone and install ACE-Step 1.5
+      - name: Clone ACE-Step 1.5
+        run: git clone --depth 1 https://github.com/ACE-Step/ACE-Step-1.5.git .ace-step
+
+      # Keep Python wheels and downloaded model weights across runs.
+      - name: Restore Python package cache
+        id: uv-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-acestep-py311-v1-${{ hashFiles('.ace-step/uv.lock', '.ace-step/pyproject.toml') }}
+
+      - name: Restore ACE-Step model weights
+        id: model-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ace-step/checkpoints
+          key: acestep-models-v15-turbo-lm06-v1
+
+      - name: Install ACE-Step 1.5
         run: |
-          git clone --depth 1 https://github.com/ACE-Step/ACE-Step-1.5.git .ace-step
           cd .ace-step
           uv sync
 
+      - name: Save Python package cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-acestep-py311-v1-${{ hashFiles('.ace-step/uv.lock', '.ace-step/pyproject.toml') }}
+
       - name: Download model weights
+        if: steps.model-cache.outputs.cache-hit != 'true'
         working-directory: .ace-step
         run: |
           # The downloader accepts "main" for the bundled official model.
           # It includes the turbo DiT; add the smaller 0.6B LM for lower RAM use.
           uv run acestep-download --model main
           uv run acestep-download --model acestep-5Hz-lm-0.6B --skip-main
+
+      - name: Save ACE-Step model cache
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .ace-step/checkpoints
+          key: acestep-models-v15-turbo-lm06-v1
 
       - name: Generate real audio
         env:
