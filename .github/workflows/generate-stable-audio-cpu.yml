@@ -1,0 +1,140 @@
+name: Generate music (Stable Audio CPU)
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Model to run (CPU only)
+        required: true
+        type: choice
+        options:
+          - stable-audio-3-small-music
+          - stable-audio-open-small
+        default: stable-audio-3-small-music
+      prompt:
+        description: Describe the music in Hebrew or English
+        required: true
+        type: string
+        default: "שיר פופ שמח עם פסנתר, תופים וגיטרה, קצב בינוני, מנגינה קליטה"
+      duration:
+        description: Duration in seconds (Open Small supports up to 11 seconds)
+        required: true
+        type: choice
+        options:
+          - "8"
+          - "11"
+          - "30"
+          - "60"
+          - "90"
+          - "120"
+        default: "30"
+      steps:
+        description: Sampling steps (lower is usually faster)
+        required: true
+        type: choice
+        options:
+          - "4"
+          - "8"
+          - "12"
+        default: "8"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-audio-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      MODEL: ${{ inputs.model }}
+      DURATION: ${{ inputs.duration }}
+      STEPS: ${{ inputs.steps }}
+      ORIGINAL_PROMPT: ${{ inputs.prompt }}
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      TOKENIZERS_PARALLELISM: "false"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate inputs
+        shell: bash
+        run: |
+          if [[ "$MODEL" == "stable-audio-open-small" && "$DURATION" -gt 11 ]]; then
+            echo "::error::Stable Audio Open Small supports up to 11 seconds. Choose 8 or 11 seconds, or select Stable Audio 3 Small-Music."
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-stable-audio-open-small.txt
+
+      - name: Translate Hebrew prompt to English
+        id: prompt
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install deep-translator
+          python scripts/prepare_music_prompt.py
+
+      - name: Install Stable Audio 3
+        if: inputs.model == 'stable-audio-3-small-music'
+        uses: astral-sh/setup-uv@v5
+
+      - name: Cache Stable Audio 3 source and dependencies
+        if: inputs.model == 'stable-audio-3-small-music'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.cache/huggingface
+          key: stable-audio-3-small-music-v1-${{ runner.os }}-py311
+
+      - name: Generate with Stable Audio 3 Small-Music
+        if: inputs.model == 'stable-audio-3-small-music'
+        shell: bash
+        env:
+          PROMPT_EN: ${{ steps.prompt.outputs.prompt_en }}
+        run: |
+          git clone --depth 1 https://github.com/Stability-AI/stable-audio-3.git "$RUNNER_TEMP/stable-audio-3"
+          uv sync --directory "$RUNNER_TEMP/stable-audio-3"
+          mkdir -p output
+          cd "$RUNNER_TEMP/stable-audio-3"
+          uv run stable-audio --model small-music -p "$PROMPT_EN" --duration "$DURATION" --steps "$STEPS" -o "$GITHUB_WORKSPACE/output/music.wav"
+
+      - name: Cache Stable Audio Open Small model
+        if: inputs.model == 'stable-audio-open-small'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: stable-audio-open-small-v1-${{ runner.os }}-py311
+
+      - name: Install CPU-only Stable Audio Tools
+        if: inputs.model == 'stable-audio-open-small'
+        run: |
+          python -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r requirements-stable-audio-open-small.txt
+
+      - name: Generate with Stable Audio Open Small
+        if: inputs.model == 'stable-audio-open-small'
+        env:
+          PROMPT_EN: ${{ steps.prompt.outputs.prompt_en }}
+        run: |
+          mkdir -p output
+          python scripts/generate_stable_audio_open_small.py
+
+      - name: Upload generated audio
+        if: always() && hashFiles('output/music.wav') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-music-${{ inputs.model }}-${{ github.run_number }}
+          path: output/music.wav
+          if-no-files-found: error
+          retention-days: 14
