@@ -89,6 +89,7 @@ jobs:
       - name: Save Python package cache
         if: steps.uv-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
+        continue-on-error: true
         with:
           path: ~/.cache/uv
           key: uv-acestep-py311-v1-${{ hashFiles('.ace-step/uv.lock', '.ace-step/pyproject.toml') }}
@@ -105,6 +106,7 @@ jobs:
       - name: Save ACE-Step model cache
         if: steps.model-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
+        continue-on-error: true
         with:
           path: .ace-step/checkpoints
           key: acestep-models-v15-turbo-lm06-v1
