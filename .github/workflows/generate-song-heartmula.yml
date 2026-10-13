@@ -98,6 +98,7 @@ jobs:
       - name: Save Python package cache
         if: steps.uv-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
+        continue-on-error: true
         with:
           path: ~/.cache/uv
           key: uv-heartmula-py310-v1-${{ hashFiles('heartlib/uv.lock', 'heartlib/pyproject.toml') }}
@@ -113,6 +114,7 @@ jobs:
       - name: Save HeartMuLa checkpoint cache
         if: steps.model-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
+        continue-on-error: true
         with:
           path: heartlib/ckpt
           key: heartmula-checkpoints-2026-01-v1
