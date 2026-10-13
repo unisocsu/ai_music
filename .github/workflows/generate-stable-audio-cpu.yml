@@ -97,11 +97,6 @@ jobs:
             ~/.cache/huggingface
           key: stable-audio-3-small-music-v1-${{ runner.os }}-py311
 
-      - name: Install CPU-only PyTorch for Stable Audio 3
-        if: inputs.model == 'stable-audio-3-small-music'
-        run: |
-          uv pip install --system torch==2.7.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cpu
-
       - name: Generate with Stable Audio 3 Small-Music
         if: inputs.model == 'stable-audio-3-small-music'
         shell: bash
@@ -109,8 +104,10 @@ jobs:
           PROMPT_EN: ${{ steps.prompt.outputs.prompt_en }}
         run: |
           git clone --depth 1 https://github.com/Stability-AI/stable-audio-3.git "$RUNNER_TEMP/stable-audio-3"
-          # The upstream project pins CUDA wheels on Linux x86_64. Keep the CPU wheels installed above.
+          # The upstream project pins CUDA wheels on Linux x86_64. Create its venv without torch first,
+          # then install CPU-only wheels directly into that venv.
           uv sync --directory "$RUNNER_TEMP/stable-audio-3" --no-install-package torch --no-install-package torchaudio --no-dev
+          uv pip install --python "$RUNNER_TEMP/stable-audio-3/.venv/bin/python" torch==2.7.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cpu
           mkdir -p output
           cd "$RUNNER_TEMP/stable-audio-3"
           uv run --no-sync stable-audio --model small-music -p "$PROMPT_EN" --duration "$DURATION" --steps "$STEPS" -o "$GITHUB_WORKSPACE/output/music.wav"
