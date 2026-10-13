@@ -69,6 +69,10 @@ jobs:
             echo "::error::Stable Audio Open Small supports up to 11 seconds. Choose 8 or 11 seconds, or select Stable Audio 3 Small-Music."
             exit 1
           fi
+          if [[ "$MODEL" == "stable-audio-open-small" && -z "$HF_TOKEN" ]]; then
+            echo "::error::HF_TOKEN is required for the gated Stable Audio Open Small model. Accept the model terms on Hugging Face and add a repository Actions secret named HF_TOKEN."
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
