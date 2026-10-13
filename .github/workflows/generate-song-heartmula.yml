@@ -63,25 +63,59 @@ jobs:
       - name: Install uv
         run: pip install uv
 
-      - name: Clone and install official HeartMuLa library
+      - name: Clone official HeartMuLa library
         run: |
           git clone --depth 1 https://github.com/HeartMuLa/heartlib.git heartlib
           cd heartlib
           # Upstream metadata currently advertises Python 3.9, but pinned dependencies
           # require Python 3.10+. Narrow the supported range for this CI checkout.
           sed -i 's/requires-python = ">=3.9"/requires-python = ">=3.10"/' pyproject.toml
+
+      # Reuse downloaded Python wheels and the large model checkpoints between runs.
+      - name: Restore Python package cache
+        id: uv-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-heartmula-py310-v1-${{ hashFiles('heartlib/uv.lock', 'heartlib/pyproject.toml') }}
+
+      - name: Restore HeartMuLa checkpoints
+        id: model-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: heartlib/ckpt
+          key: heartmula-checkpoints-2026-01-v1
+
+      - name: Install HeartMuLa dependencies
+        run: |
+          cd heartlib
           uv sync --no-dev
           # Heartlib currently resolves an old Datasets release, which expects PyExtensionType.
           # Pin Arrow to the last compatible major version and upgrade Datasets together.
           uv pip install --python .venv/bin/python --reinstall "pyarrow==19.0.1" "datasets==3.6.0" "huggingface-hub==0.36.2" "torchcodec==0.10.0"
           uv run --no-sync python -c 'import numpy, pyarrow, datasets, huggingface_hub, transformers, torchcodec; print("numpy=" + numpy.__version__ + ", pyarrow=" + pyarrow.__version__ + ", datasets=" + datasets.__version__ + ", huggingface_hub=" + huggingface_hub.__version__ + ", transformers=" + transformers.__version__ + ", torchcodec=" + torchcodec.__version__)'
 
+      - name: Save Python package cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-heartmula-py310-v1-${{ hashFiles('heartlib/uv.lock', 'heartlib/pyproject.toml') }}
+
       - name: Download HeartMuLa model checkpoints
+        if: steps.model-cache.outputs.cache-hit != 'true'
         working-directory: heartlib
         run: |
           uv run --no-sync hf download HeartMuLa/HeartMuLaGen gen_config.json tokenizer.json --local-dir ./ckpt
           uv run --no-sync hf download HeartMuLa/HeartMuLa-oss-3B-happy-new-year --local-dir ./ckpt/HeartMuLa-oss-3B
           uv run --no-sync hf download HeartMuLa/HeartCodec-oss-20260123 --local-dir ./ckpt/HeartCodec-oss
+
+      - name: Save HeartMuLa checkpoint cache
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: heartlib/ckpt
+          key: heartmula-checkpoints-2026-01-v1
 
       - name: Generate audio (CPU, experimental)
         run: |
