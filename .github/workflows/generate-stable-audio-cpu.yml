@@ -1,4 +1,4 @@
-name: Generate music (Stable Audio Open Small CPU)
+name: Generate music (MusicGen Small CPU, no token)
 
 on:
   workflow_dispatch:
@@ -9,28 +9,20 @@ on:
         type: string
         default: "שיר פופ שמח עם פסנתר, תופים וגיטרה, קצב בינוני, מנגינה קליטה"
       duration:
-        description: Duration in seconds (maximum 11 seconds)
-        required: true
-        type: choice
-        options:
-          - "8"
-          - "11"
-        default: "8"
-      steps:
-        description: Sampling steps (lower is usually faster)
+        description: Duration in seconds
         required: true
         type: choice
         options:
           - "4"
           - "8"
-          - "12"
+          - "10"
         default: "4"
 
 permissions:
   contents: read
 
 concurrency:
-  group: stable-audio-open-small-${{ github.workflow }}-${{ github.ref }}
+  group: musicgen-cpu-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -39,7 +31,6 @@ jobs:
     timeout-minutes: 180
     env:
       DURATION: ${{ inputs.duration }}
-      STEPS: ${{ inputs.steps }}
       ORIGINAL_PROMPT: ${{ inputs.prompt }}
       OMP_NUM_THREADS: "2"
       MKL_NUM_THREADS: "2"
@@ -63,20 +54,19 @@ jobs:
           python -m pip install deep-translator
           python scripts/prepare_music_prompt.py
 
-      - name: Cache Stable Audio Open Small model
+      - name: Cache MusicGen Small model
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: stable-audio-open-small-public-v2-${{ runner.os }}-py311
+          key: musicgen-small-public-v1-${{ runner.os }}-py311
 
-      - name: Install Stable Audio Tools and compatible CPU PyTorch
+      - name: Install MusicGen and CPU PyTorch
         run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch==2.7.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r requirements-stable-audio-open-small.txt
-          # Keep the PyTorch family on matching CPU wheels; otherwise torchvision
-          # may fail at import with "operator torchvision::nms does not exist".
-          python -m pip install --force-reinstall --no-deps torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Generate with Stable Audio Open Small (no token)
+      - name: Generate with public MusicGen Small (no token)
         env:
           PROMPT_EN: ${{ steps.prompt.outputs.prompt_en || inputs.prompt }}
         run: |
@@ -87,7 +77,7 @@ jobs:
         if: always() && hashFiles('output/music.wav') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: generated-music-stable-audio-open-small-${{ github.run_number }}
+          name: generated-music-musicgen-small-${{ github.run_number }}
           path: output/music.wav
           if-no-files-found: error
           retention-days: 14
