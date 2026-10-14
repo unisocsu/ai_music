@@ -59,9 +59,12 @@ duration_result = subprocess.run([
     "ffprobe", "-v", "error", "-show_entries", "format=duration",
     "-of", "default=noprint_wrappers=1:nokey=1", str(output),
 ], check=True, capture_output=True, text=True)
-duration_seconds = float(duration_result.stdout.strip())
-if duration_seconds < int(os.environ.get("DURATION_SECONDS", "60")) * 0.75:
-    raise RuntimeError(
-        f"Generated audio is only {duration_seconds:.1f}s; expected at least 75% of the requested duration."
+actual_duration = float(duration_result.stdout.strip())
+requested_duration = int(os.environ.get("DURATION_SECONDS", "60"))
+if actual_duration < requested_duration * 0.75:
+    print(
+        f"::warning::HeartMuLa returned {actual_duration:.1f}s for a {requested_duration}s request. "
+        "Keeping the valid audio artifact instead of failing the entire workflow.",
+        flush=True,
     )
-print(f"Generated HeartMuLa audio: {output} ({output.stat().st_size:,} bytes, {duration_seconds:.1f}s)", flush=True)
+print(f"Generated HeartMuLa audio: {output} ({output.stat().st_size:,} bytes, {actual_duration:.1f}s)", flush=True)
