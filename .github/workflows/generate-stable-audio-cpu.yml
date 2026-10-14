@@ -69,10 +69,12 @@ jobs:
           path: ~/.cache/huggingface
           key: stable-audio-open-small-public-v2-${{ runner.os }}-py311
 
-      - name: Install CPU-only Stable Audio Tools
+      - name: Install Stable Audio Tools and compatible CPU PyTorch
         run: |
-          python -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r requirements-stable-audio-open-small.txt
+          # Keep the PyTorch family on matching CPU wheels; otherwise torchvision
+          # may fail at import with "operator torchvision::nms does not exist".
+          python -m pip install --force-reinstall --no-deps torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cpu
 
       - name: Generate with Stable Audio Open Small (no token)
         env:
