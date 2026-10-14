@@ -1,33 +1,21 @@
-name: Generate music (Stable Audio CPU)
+name: Generate music (Stable Audio Open Small CPU)
 
 on:
   workflow_dispatch:
     inputs:
-      model:
-        description: Model to run (CPU only)
-        required: true
-        type: choice
-        options:
-          - stable-audio-3-small-music
-          - stable-audio-open-small
-        default: stable-audio-3-small-music
       prompt:
         description: Describe the music in Hebrew or English
         required: true
         type: string
         default: "שיר פופ שמח עם פסנתר, תופים וגיטרה, קצב בינוני, מנגינה קליטה"
       duration:
-        description: Duration in seconds (Open Small supports up to 11 seconds)
+        description: Duration in seconds (maximum 11 seconds)
         required: true
         type: choice
         options:
           - "8"
           - "11"
-          - "30"
-          - "60"
-          - "90"
-          - "120"
-        default: "30"
+        default: "8"
       steps:
         description: Sampling steps (lower is usually faster)
         required: true
@@ -42,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: stable-audio-${{ github.workflow }}-${{ github.ref }}
+  group: stable-audio-open-small-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -50,8 +38,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      MODEL: ${{ inputs.model }}
       DURATION: ${{ inputs.duration }}
       STEPS: ${{ inputs.steps }}
       ORIGINAL_PROMPT: ${{ inputs.prompt }}
@@ -62,18 +48,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate inputs and model access configuration
-        shell: bash
-        run: |
-          if [[ "$MODEL" == "stable-audio-open-small" && "$DURATION" -gt 11 ]]; then
-            echo "::error::Stable Audio Open Small supports up to 11 seconds. Choose 8 or 11 seconds, or select Stable Audio 3 Small-Music."
-            exit 1
-          fi
-          if [[ -z "$HF_TOKEN" ]]; then
-            echo "::error::This workflow needs the HF_TOKEN Actions secret for either model. On Hugging Face, accept the model terms for the selected model (and T5Gemma if prompted), create a read token, then add it in Settings > Secrets and variables > Actions as HF_TOKEN."
-            exit 1
-          fi
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -81,7 +55,7 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-stable-audio-open-small.txt
 
-      - name: Translate Hebrew prompt to English
+      - name: Translate Hebrew prompt to English (optional)
         id: prompt
         continue-on-error: true
         run: |
@@ -89,49 +63,18 @@ jobs:
           python -m pip install deep-translator
           python scripts/prepare_music_prompt.py
 
-      - name: Install Stable Audio 3
-        if: inputs.model == 'stable-audio-3-small-music'
-        uses: astral-sh/setup-uv@v5
-
-      - name: Cache Stable Audio 3 source and dependencies
-        if: inputs.model == 'stable-audio-3-small-music'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-            ~/.cache/huggingface
-          key: stable-audio-3-small-music-v1-${{ runner.os }}-py311
-
-      - name: Generate with Stable Audio 3 Small-Music
-        if: inputs.model == 'stable-audio-3-small-music'
-        shell: bash
-        env:
-          PROMPT_EN: ${{ steps.prompt.outputs.prompt_en || inputs.prompt }}
-        run: |
-          git clone --depth 1 https://github.com/Stability-AI/stable-audio-3.git "$RUNNER_TEMP/stable-audio-3"
-          # The upstream project pins CUDA wheels on Linux x86_64. Create its venv without torch first,
-          # then install CPU-only wheels directly into that venv.
-          uv sync --directory "$RUNNER_TEMP/stable-audio-3" --no-install-package torch --no-install-package torchaudio --no-dev
-          uv pip install --python "$RUNNER_TEMP/stable-audio-3/.venv/bin/python" torch==2.7.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cpu
-          mkdir -p output
-          cd "$RUNNER_TEMP/stable-audio-3"
-          uv run --no-sync stable-audio --model small-music -p "$PROMPT_EN" --duration "$DURATION" --steps "$STEPS" -o "$GITHUB_WORKSPACE/output/music.wav"
-
       - name: Cache Stable Audio Open Small model
-        if: inputs.model == 'stable-audio-open-small'
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: stable-audio-open-small-v1-${{ runner.os }}-py311
+          key: stable-audio-open-small-public-v2-${{ runner.os }}-py311
 
       - name: Install CPU-only Stable Audio Tools
-        if: inputs.model == 'stable-audio-open-small'
         run: |
           python -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r requirements-stable-audio-open-small.txt
 
-      - name: Generate with Stable Audio Open Small
-        if: inputs.model == 'stable-audio-open-small'
+      - name: Generate with Stable Audio Open Small (no token)
         env:
           PROMPT_EN: ${{ steps.prompt.outputs.prompt_en || inputs.prompt }}
         run: |
@@ -142,7 +85,7 @@ jobs:
         if: always() && hashFiles('output/music.wav') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: generated-music-${{ inputs.model }}-${{ github.run_number }}
+          name: generated-music-stable-audio-open-small-${{ github.run_number }}
           path: output/music.wav
           if-no-files-found: error
           retention-days: 14
