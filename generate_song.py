@@ -77,8 +77,8 @@ params = GenerationParams(
     instrumental=not bool(lyrics),
     vocal_language="he" if any("\u0590" <= ch <= "\u05FF" for ch in lyrics) else "unknown",
     duration=duration_seconds,
-    inference_steps=8,
-    thinking=True,
+    inference_steps=4,
+    thinking=False,
 )
 config = GenerationConfig(batch_size=1, use_random_seed=True, audio_format="mp3")
 result = generate_music(dit, lm, params, config, save_dir=str(out_dir))
