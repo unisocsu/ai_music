@@ -12,13 +12,7 @@ steps = int(os.environ.get("STEPS", "8"))
 
 if duration > 11:
     raise SystemExit("Stable Audio Open Small supports a maximum duration of 11 seconds.")
-if not os.environ.get("HF_TOKEN"):
-    raise SystemExit(
-        "HF_TOKEN is missing. This Hugging Face model is gated: accept its model terms, "
-        "create a Hugging Face token, and add it to GitHub repository Secrets as HF_TOKEN."
-    )
-
-# HF_TOKEN is read by huggingface_hub automatically.
+# This public model is downloaded anonymously; no HF_TOKEN is required.
 device = "cpu"
 torch.set_num_threads(max(1, int(os.environ.get("OMP_NUM_THREADS", "2"))))
 start = time.time()
