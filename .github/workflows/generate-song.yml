@@ -16,10 +16,10 @@ on:
         required: false
         type: string
       duration_seconds:
-        description: "Target song duration in seconds"
+        description: "Target song duration in seconds; 30s is recommended for CPU-only runners"
         required: true
         type: choice
-        default: "60"
+        default: "30"
         options:
           - "30"
           - "60"
@@ -98,8 +98,6 @@ jobs:
         if: steps.model-cache.outputs.cache-hit != 'true'
         working-directory: .ace-step
         run: |
-          # The downloader accepts "main" for the bundled official model.
-          # It includes the turbo DiT; add the smaller 0.6B LM for lower RAM use.
           uv run acestep-download --model main
           uv run acestep-download --model acestep-5Hz-lm-0.6B --skip-main
 
