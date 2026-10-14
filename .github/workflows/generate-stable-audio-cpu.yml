@@ -36,7 +36,7 @@ on:
           - "4"
           - "8"
           - "12"
-        default: "8"
+        default: "4"
 
 permissions:
   contents: read
@@ -62,15 +62,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate inputs
+      - name: Validate inputs and model access configuration
         shell: bash
         run: |
           if [[ "$MODEL" == "stable-audio-open-small" && "$DURATION" -gt 11 ]]; then
             echo "::error::Stable Audio Open Small supports up to 11 seconds. Choose 8 or 11 seconds, or select Stable Audio 3 Small-Music."
             exit 1
           fi
-          if [[ "$MODEL" == "stable-audio-open-small" && -z "$HF_TOKEN" ]]; then
-            echo "::error::HF_TOKEN is required for the gated Stable Audio Open Small model. Accept the model terms on Hugging Face and add a repository Actions secret named HF_TOKEN."
+          if [[ -z "$HF_TOKEN" ]]; then
+            echo "::error::This workflow needs the HF_TOKEN Actions secret for either model. On Hugging Face, accept the model terms for the selected model (and T5Gemma if prompted), create a read token, then add it in Settings > Secrets and variables > Actions as HF_TOKEN."
             exit 1
           fi
 
@@ -83,6 +83,7 @@ jobs:
 
       - name: Translate Hebrew prompt to English
         id: prompt
+        continue-on-error: true
         run: |
           python -m pip install --upgrade pip
           python -m pip install deep-translator
@@ -105,7 +106,7 @@ jobs:
         if: inputs.model == 'stable-audio-3-small-music'
         shell: bash
         env:
-          PROMPT_EN: ${{ steps.prompt.outputs.prompt_en }}
+          PROMPT_EN: ${{ steps.prompt.outputs.prompt_en || inputs.prompt }}
         run: |
           git clone --depth 1 https://github.com/Stability-AI/stable-audio-3.git "$RUNNER_TEMP/stable-audio-3"
           # The upstream project pins CUDA wheels on Linux x86_64. Create its venv without torch first,
@@ -132,7 +133,7 @@ jobs:
       - name: Generate with Stable Audio Open Small
         if: inputs.model == 'stable-audio-open-small'
         env:
-          PROMPT_EN: ${{ steps.prompt.outputs.prompt_en }}
+          PROMPT_EN: ${{ steps.prompt.outputs.prompt_en || inputs.prompt }}
         run: |
           mkdir -p output
           python scripts/generate_stable_audio_open_small.py
